@@ -140,11 +140,6 @@ exports.createReservation = async (req, res, next) => {
 
         // --- Update Equipment Quantities & Send Notification --- 
         if (validatedEquipment.length > 0) {
-            // Update quantities
-            await Promise.all(validatedEquipment.map(item => 
-                Equipment.findByIdAndUpdate(item.equipment, { $inc: { quantityAvailable: -item.quantityRequested } })
-            ));
-
             // Send notification (existing logic)
             try {
                 // Find admin users (customize this query as needed)

@@ -46,9 +46,9 @@ const timeSlots: string[] = [
 ];
 
 const CoworkingSpaceDetailPage: React.FC<CoworkingSpaceDetailPageProps> = ({ params }) => {
-  // Use TypeScript's type assertion to safely access id
-  const paramsObj = params as { id: string };
-  const spaceId = paramsObj.id;
+  // Cast params to any for React.use, then cast result to expected type
+  const resolvedParams = React.use(params as any) as { id: string };
+  const spaceId = resolvedParams.id;
   const { isAuthenticated, isLoading } = useAuth();
   const [space, setSpace] = useState<CoworkingSpace | null>(null);
   const [availableEquipment, setAvailableEquipment] = useState<Equipment[]>([]);
