@@ -9,7 +9,7 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 // Load environment variables
-require('dotenv').config({ path: './config/config.env' });
+require('dotenv').config();
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -59,16 +59,14 @@ app.use(limiter);
 // Import Routes
 const authRoutes = require('./routes/auth');
 const reservationRoutes = require('./routes/reservation');
-
+const coworkingSpaceRoutes = require('./routes/coworkingSpace');
+const equipmentRoutes = require('./routes/equipment');
 
 // Mount Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/reservations', reservationRoutes);
-
-const coworkingSpaceRoutes = require('./routes/coworkingSpace');
-app.use('/api/v1/coworking-spaces', coworkingSpaceRoutes);  // Mounting the coworking space routes
-
-
+app.use('/api/v1/coworking-spaces', coworkingSpaceRoutes);
+app.use('/api/v1/equipment', equipmentRoutes);
 
 // Test Routes to check server functionality
 app.get('/', (req, res) => {

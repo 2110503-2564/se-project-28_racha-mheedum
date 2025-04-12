@@ -19,10 +19,28 @@ const ReservationSchema = new mongoose.Schema({
         type: String, // ✅ Added timeSlot
         required: [true, 'Please add a time slot for the reservation']
     },
+    requestedEquipment: [{
+        equipment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Equipment',
+            required: true
+        },
+        quantityRequested: {
+            type: Number,
+            required: true,
+            min: [1, 'Quantity requested must be at least 1']
+        }
+    }],
     status: {
         type: String,
         enum: ['active', 'cancelled'],
         default: 'active'
+    },
+    equipmentPreparationStatus: {
+        type: String,
+        enum: ['pending', 'prepared', 'not_required'],
+        // Default will be set in the controller based on whether equipment is requested
+        // default: 'not_required' 
     },
     createdAt: {
         type: Date,
