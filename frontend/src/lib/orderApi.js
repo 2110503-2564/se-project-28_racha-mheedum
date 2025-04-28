@@ -67,6 +67,24 @@ export const getOrderById = async (orderId, token) => {
   }
 };
 
+// Get all orders for a user
+export const getUserOrders = async (token) => {
+  if (!token) throw new Error('Authentication token is required');
+  const res = await fetch('/api/v1/orders', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) {
+    let errorBody;
+    try { errorBody = await res.json(); } catch {}
+    const msg = errorBody?.error || res.statusText;
+    throw new Error(`Failed to fetch orders: ${res.status} ${msg}`);
+  }
+  return await res.json(); // { success, data: Order[] }
+};
+
 // Get All Orders (Admin)
 export const getAllOrdersAdmin = async (token) => {
   if (!token) {

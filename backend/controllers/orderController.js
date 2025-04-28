@@ -98,7 +98,20 @@ exports.placeOrder = async (req, res, next) => {
         // next(err); // Or pass to error middleware
     }
 };
-
+// @desc    Get all orders for the logged-in user
+// @route   GET /api/v1/orders
+// @access  Private
+exports.getUserOrders = async (req, res, next) => {
+    try {
+      const orders = await Order.find({ user: req.user._id })
+        .sort({ createdAt: -1 })
+        .populate('items.menuItem', 'name price');
+      res.status(200).json({ success: true, data: orders });
+    } catch (err) {
+      console.error('Error fetching user orders:', err);
+      res.status(500).json({ success: false, error: 'Server Error fetching your orders' });
+    }
+  };
 // @desc    Get a single order by ID
 // @route   GET /api/v1/orders/:orderId
 // @access  Private (Owner or Admin)
@@ -191,119 +204,126 @@ exports.deleteOrder = async (req, res) => {
 // @access  Private/Admin
 exports.updateOrder = async (req, res) => {
     const { orderId } = req.params;
-    const { items } = req.body;
-
-    // Validate ObjectId format
+    const { items, status } = req.body;               // <-- include status
+  
+    // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-        return res.status(404).json({ success: false, error: `Order not found with id: ${orderId}` });
+      return res
+        .status(404)
+        .json({ success: false, error: `Order not found with id: ${orderId}` });
     }
-
+  
     try {
-        // Find the order
-        const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({ success: false, error: `Order not found with id: ${orderId}` });
-        }
-
-        // If no items provided or all items have quantity 0, delete the order
-        if (!items || !Array.isArray(items) || items.length === 0) {
-            await Order.findByIdAndDelete(orderId);
-            // Emit socket event for order deletion
-            const io = req.app.get('io');
-            if (io) {
-                io.emit('order_deleted', orderId);
-                console.log(`Socket event 'order_deleted' emitted for order ${orderId}`);
-            }
-            return res.status(200).json({ success: true, message: 'Order deleted as it has no items' });
-        }
-
-        let calculatedTotalPrice = 0;
-        const itemsToProcess = [];
-
-        // Validate and process each item
-        for (const item of items) {
-            if (!item.menuItem || !mongoose.Types.ObjectId.isValid(item.menuItem) || 
-                item.quantity == null || item.quantity < 0 || !Number.isInteger(item.quantity)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: `Invalid item data: ${JSON.stringify(item)}. Ensure menuItem (valid ObjectId) and quantity (integer >=0) are provided.` 
-                });
-            }
-
-            // Skip items with zero quantity
-            if (item.quantity === 0) {
-                continue;
-            }
-
-            const menuItemDetails = await MenuItem.findById(item.menuItem);
-            if (!menuItemDetails) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: `Menu item with ID ${item.menuItem} not found.` 
-                });
-            }
-
-            if (!menuItemDetails.isAvailable) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: `Menu item '${menuItemDetails.name}' (ID: ${item.menuItem}) is currently unavailable.` 
-                });
-            }
-
-            calculatedTotalPrice += menuItemDetails.price * item.quantity;
-            itemsToProcess.push({
-                menuItem: menuItemDetails._id,
-                quantity: item.quantity
-            });
-        }
-
-        // If no items left after processing, delete the order
-        if (itemsToProcess.length === 0) {
-            await Order.findByIdAndDelete(orderId);
-            // Emit socket event for order deletion
-            const io = req.app.get('io');
-            if (io) {
-                io.emit('order_deleted', orderId);
-                console.log(`Socket event 'order_deleted' emitted for order ${orderId}`);
-            }
-            return res.status(200).json({ success: true, message: 'Order deleted as it has no items' });
-        }
-
-        // Round total price to 2 decimal places
-        calculatedTotalPrice = Math.round(calculatedTotalPrice * 100) / 100;
-
-        // Update the order
-        const updatedOrder = await Order.findByIdAndUpdate(
-            orderId,
-            {
-                items: itemsToProcess,
-                totalPrice: calculatedTotalPrice
-            },
-            { new: true, runValidators: true }
-        ).populate('user', 'name email')
-         .populate('items.menuItem', 'name price');
-
-        // Emit socket event for real-time updates
+      // 1) Load the order
+      const order = await Order.findById(orderId);
+      if (!order) {
+        return res
+          .status(404)
+          .json({ success: false, error: `Order not found with id: ${orderId}` });
+      }
+  
+      // 2) If we're only updating the status, short-circuit here:
+      if (typeof status === 'string') {
+        order.status = status;
+        await order.save();
+  
+        // Emit update event
         const io = req.app.get('io');
         if (io) {
-            io.emit('order_updated', updatedOrder);
-            console.log(`Socket event 'order_updated' emitted for order ${updatedOrder._id}`);
+          io.emit('order_updated', order);
         }
-
-        res.status(200).json({ success: true, data: updatedOrder });
-
+  
+        return res.status(200).json({ success: true, data: order });
+      }
+  
+      // 3) Otherwise, fall back to items-based logic:
+      //    if no items provided, delete the order
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        await Order.findByIdAndDelete(orderId);
+  
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('order_deleted', orderId);
+        }
+        return res
+          .status(200)
+          .json({ success: true, message: 'Order deleted as it has no items' });
+      }
+  
+      // 4) Validate & recalculate price
+      let calculatedTotalPrice = 0;
+      const itemsToProcess = [];
+  
+      for (const item of items) {
+        if (
+          !item.menuItem ||
+          !mongoose.Types.ObjectId.isValid(item.menuItem) ||
+          item.quantity == null ||
+          item.quantity < 0 ||
+          !Number.isInteger(item.quantity)
+        ) {
+          return res
+            .status(400)
+            .json({
+              success: false,
+              error: `Invalid item data: ${JSON.stringify(item)}. Ensure menuItem is a valid ObjectId and quantity is a non-negative integer.`,
+            });
+        }
+  
+        // Skip items with zero quantity
+        if (item.quantity === 0) {
+          continue;
+        }
+  
+        const menuItemDetails = await MenuItem.findById(item.menuItem);
+        if (!menuItemDetails) {
+          return res
+            .status(400)
+            .json({
+              success: false,
+              error: `Menu item with ID ${item.menuItem} not found.`,
+            });
+        }
+        if (!menuItemDetails.isAvailable) {
+          return res
+            .status(400)
+            .json({
+              success: false,
+              error: `Menu item '${menuItemDetails.name}' (ID: ${item.menuItem}) is currently unavailable.`,
+            });
+        }
+  
+        calculatedTotalPrice += menuItemDetails.price * item.quantity;
+        itemsToProcess.push({
+          menuItem: menuItemDetails._id,
+          quantity: item.quantity,
+          // (optionally) priceAtOrder: menuItemDetails.price
+        });
+      }
+  
+      calculatedTotalPrice = Math.round(calculatedTotalPrice * 100) / 100;
+  
+      // 5) Save updated items & price
+      order.items      = itemsToProcess;
+      order.totalPrice = calculatedTotalPrice;
+      await order.save();
+  
+      // Emit update event
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('order_updated', order);
+      }
+  
+      return res.status(200).json({ success: true, data: order });
     } catch (err) {
-        console.error('Error updating order:', err);
-        if (err.name === 'ValidationError') {
-            const errors = Object.values(err.errors).reduce((acc, { path, message }) => {
-                acc[path] = message;
-                return acc;
-            }, {});
-            return res.status(400).json({ success: false, error: 'Validation Failed', details: errors });
-        }
-        if (err.name === 'CastError' && err.kind === 'ObjectId') {
-            return res.status(400).json({ success: false, error: `Invalid ID format: ${err.value}` });
-        }
-        res.status(500).json({ success: false, error: 'Server Error updating order' });
+      console.error('Error updating order:', err);
+      if (err.name === 'CastError' && err.kind === 'ObjectId') {
+        return res
+          .status(400)
+          .json({ success: false, error: `Invalid ID format: ${err.value}` });
+      }
+      return res
+        .status(500)
+        .json({ success: false, error: 'Server Error updating order' });
     }
-}; 
+  };
