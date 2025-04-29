@@ -31,34 +31,30 @@ export const getMenuItemById = async (id, token) => {
 };
 
 // Create a new menu item
-export const createMenuItem = async (menuData, token) => {
+export const createMenuItem = async (data, token) => {
     try {
-        const response = await api.post('/menu', menuData, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
-        return { success: true, data: response.data };
+      const response = await api.post('/menu', data, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return { success: true, data: response.data };
     } catch (error) {
-        console.error('Error creating menu item:', error);
-        return { success: false, error: error.response?.data?.message || 'Failed to create menu item' };
+      console.error('Error creating menu item:', error);
+      return { success: false, error: error.response?.data?.message || 'Failed to create menu item' };
     }
-};
-
-// Update a menu item
-export const updateMenuItem = async (id, menuData, token) => {
+  };
+  
+  // Update an existing menu item (including its `isAvailable` status)
+  export const updateMenuItem = async (id, data, token) => {
     try {
-        const response = await api.put(`/menu/${id}`, menuData, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
-        return { success: true, data: response.data };
+      const response = await api.put(`/menu/${id}`, data, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return { success: true, data: response.data };
     } catch (error) {
-        console.error('Error updating menu item:', error);
-        return { success: false, error: error.response?.data?.message || 'Failed to update menu item' };
+      console.error('Error updating menu item:', error);
+      return { success: false, error: error.response?.data?.message || 'Failed to update menu item' };
     }
-};
+  };
 
 // Delete a menu item
 export const deleteMenuItem = async (id, token) => {

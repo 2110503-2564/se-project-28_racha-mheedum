@@ -1,19 +1,26 @@
 const express = require('express');
-const { getMenuItems, getMenuItemById, createMenuItem, updateMenuItem, deleteMenuItem } = require('../controllers/menuController');
+const {
+  getMenuItems,
+  getMenuItemById,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem
+} = require('../controllers/menuController');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Route for GET /api/v1/menu
-router.route('/').get(getMenuItems);
-
-// Admin routes for menu management
+// List menu items: public (only available) or admin (all)
 router.route('/')
-    .post(protect, authorize('admin'), createMenuItem);
+  .get(protect, getMenuItems);
+
+// Admin-only endpoints
+router.route('/')
+  .post(protect, authorize('admin'), createMenuItem);
 
 router.route('/:id')
-    .get(protect, authorize('admin'), getMenuItemById)
-    .put(protect, authorize('admin'), updateMenuItem)
-    .delete(protect, authorize('admin'), deleteMenuItem);
+  .get(protect, authorize('admin'), getMenuItemById)
+  .put(protect, authorize('admin'), updateMenuItem)
+  .delete(protect, authorize('admin'), deleteMenuItem);
 
-module.exports = router; 
+module.exports = router;
