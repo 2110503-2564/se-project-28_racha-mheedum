@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const { xss } = require('express-xss-sanitizer');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
+const hpp = require('hpp');
 const cron = require('node-cron');
 const { updatePastReservations } = require('./utils/schedulerTasks');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -75,6 +76,9 @@ app.use(helmet());
 
 //Prevent XSS attacks
 app.use(xss());
+
+//Prevent http param polution
+app.use(hpp());
 
 //Rate limiting
 const limiter = rateLimit({
