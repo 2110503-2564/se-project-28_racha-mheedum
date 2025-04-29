@@ -4,11 +4,13 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const mongoSanitize = require('express-mongo-sanitize');
 const helmet = require('helmet');
-const {xss} = require('express-xss-sanitizer');
+const { xss } = require('express-xss-sanitizer');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const cron = require('node-cron');
 const { updatePastReservations } = require('./utils/schedulerTasks');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 
 // --- Socket.IO Setup ---
 const http = require('http'); // Import http
@@ -20,17 +22,17 @@ require('dotenv').config();
 
 // Connect to MongoDB
 const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI, {
-            // Remove deprecated options
-            // useNewUrlParser: true,
-            // useUnifiedTopology: true,
-        });
-        console.log("✅ MongoDB Connected Successfully!");
-    } catch (err) {
-        console.error("❌ MongoDB Connection Error:", err.message);
-        process.exit(1);
-    }
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      // Remove deprecated options
+      // useNewUrlParser: true,
+      // useUnifiedTopology: true,
+    });
+    console.log("✅ MongoDB Connected Successfully!");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Error:", err.message);
+    process.exit(1);
+  }
 };
 connectDB();
 
@@ -38,9 +40,9 @@ const app = express();
 
 // --- Socket.IO Server Creation ---
 const httpServer = http.createServer(app);
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-    ? ['https://software-dev-2.vercel.app', 'http://localhost:3000', 'http://localhost:3001']
-    : ['http://localhost:3000', 'http://localhost:3001'];
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? ['https://software-dev-2.vercel.app', 'http://localhost:3000', 'http://localhost:3001']
+  : ['http://localhost:3000', 'http://localhost:3001'];
 
 const io = new Server(httpServer, {
   cors: {
@@ -76,8 +78,8 @@ app.use(xss());
 
 //Rate limiting
 const limiter = rateLimit({
-    windowMs: 1*60*1000, //1 mins
-    max: 10000
+  windowMs: 1 * 60 * 1000, //1 mins
+  max: 10000
 });
 app.use(limiter);
 
@@ -110,6 +112,43 @@ io.on('connection', (socket) => {
 });
 // --- End Socket.IO Connection Handling ---
 
+// Swagger Definition
+const swaggerOptions = {
+  swaggerDefinition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Coworking Space API',
+      version: '1.0.0',
+      description: 'API documentation for the Co-working Space Reservation System',
+    },
+    servers: [
+      {
+        url: process.env.NODE_ENV === 'production' ? 'https://software-dev-2.vercel.app/api/v1' : 'http://localhost:5003/api/v1',
+        description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
+      }
+    ],
+    components: { // Optional: Define security schemes if you use authentication
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        }
+      }
+    },
+    security: [{ // Optional: Apply security globally
+      bearerAuth: []
+    }]
+  },
+  // Path to the API docs (your route files)
+  apis: ['./routes/*.js'],
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
+// Mount Swagger UI route
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Schedule Tasks
 // Runs every hour at the beginning of the hour (e.g., 1:00, 2:00)
 console.log('[Scheduler] Scheduling updatePastReservations task...');
@@ -122,31 +161,31 @@ cron.schedule('0 * * * *', () => {
 
 // Test Routes to check server functionality
 app.get('/', (req, res) => {
-    res.json({ success: true, message: 'API is running' });
+  res.json({ success: true, message: 'API is running' });
 });
 
 app.get('/test', (req, res) => {
-    res.json({ success: true, message: 'Test route works!' });
+  res.json({ success: true, message: 'Test route works!' });
 });
 
 // Start Server only if not in test environment
 const PORT = process.env.PORT || 5003;
-let serverInstance; 
+let serverInstance;
 
 if (process.env.NODE_ENV !== 'test') {
-    // Use httpServer to listen now
-    serverInstance = httpServer.listen(PORT, () => { 
-        console.log(`🚀 Server (with Socket.IO) running on port ${PORT}`);
-    });
-} 
+  // Use httpServer to listen now
+  serverInstance = httpServer.listen(PORT, () => {
+    console.log(`🚀 Server (with Socket.IO) running on port ${PORT}`);
+  });
+}
 
 process.on('unhandledRejection', (err, promise) => {
-    console.log(`❌ Unhandled Error: ${err.message}`);
-    if (serverInstance) {
-         serverInstance.close(() => process.exit(1));
-    } else {
-        process.exit(1); 
-    }
+  console.log(`❌ Unhandled Error: ${err.message}`);
+  if (serverInstance) {
+    serverInstance.close(() => process.exit(1));
+  } else {
+    process.exit(1);
+  }
 });
 
 // Export app (supertest uses this)
