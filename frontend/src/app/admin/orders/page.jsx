@@ -218,7 +218,7 @@ export default function AdminOrdersPage() {
                     {order.status === 'preparing' && (
                       <button
                         onClick={() =>
-                          handleChangeStatus(order._id, 'done')
+                          handleChangeStatus(order._id, 'delivered')
                         }
                         className="px-3 py-1 bg-green-500 text-white rounded"
                       >
