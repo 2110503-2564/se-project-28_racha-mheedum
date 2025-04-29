@@ -11,7 +11,7 @@ interface MembershipData {
     type: string;
     description: string;
     pointsRequired: number;
-    benefits: Array<{description: string}>;
+    benefits: Array<{ description: string }>;
     isActive: boolean;
   };
   status: string;
@@ -59,7 +59,6 @@ export default function MembershipDetails() {
         }
 
         const membershipData = await membershipRes.json();
-        setMembership(membershipData.data);
 
         // Fetch all membership programs
         const programsRes = await fetch('http://localhost:5003/api/v1/memberships/programs', {
@@ -73,7 +72,26 @@ export default function MembershipDetails() {
         }
 
         const programsData = await programsRes.json();
-        setPrograms(programsData.data);
+
+        // Sort programs in descending order to get the highest eligible program
+        const sortedPrograms = programsData.data.sort(
+          (a: MembershipProgram, b: MembershipProgram) => b.pointsRequired - a.pointsRequired
+        );
+        
+
+        // Find the highest eligible program
+        const matchingProgram = sortedPrograms.find(
+          (program: MembershipProgram) => membershipData.data.points >= program.pointsRequired
+        );
+
+        // Fallback if no matching program is found (assign 'Basic Membership')
+        const selectedProgram = matchingProgram || { name: 'Basic Membership', type: 'basic' };
+
+        setPrograms(programsData.data); // Update programs state
+        setMembership({
+          ...membershipData.data,
+          program: selectedProgram,
+        });
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Failed to load membership details');
@@ -87,31 +105,24 @@ export default function MembershipDetails() {
 
   // Calculate next tier and points needed
   const getNextTierInfo = (currentType: string, points: number) => {
-    // Sort programs by points required in ascending order
     const sortedPrograms = [...programs].sort((a, b) => a.pointsRequired - b.pointsRequired);
-    
-    // Find current program index
     const currentIndex = sortedPrograms.findIndex(p => p.type === currentType);
-    
-    // If current type is not found or is the highest tier
+
     if (currentIndex === -1 || currentIndex === sortedPrograms.length - 1) {
       return { nextTier: null, nextTierName: null, pointsNeeded: 0, progress: 100 };
     }
-    
-    // Get next tier program
+
     const nextProgram = sortedPrograms[currentIndex + 1];
     const pointsNeeded = nextProgram.pointsRequired - points;
-    
-    // Calculate progress towards next tier, not based on basic membership
+
     const currentPoints = points;
     const nextTierPoints = nextProgram.pointsRequired;
     const currentTierPoints = currentIndex >= 0 ? sortedPrograms[currentIndex].pointsRequired : 0;
-    
-    // Calculate progress as percentage between current tier and next tier
+
     const progressRange = nextTierPoints - currentTierPoints;
     const pointsAboveCurrentTier = currentPoints - currentTierPoints;
     const progress = Math.min(100, (pointsAboveCurrentTier / progressRange) * 100);
-    
+
     return { 
       nextTier: nextProgram.type,
       nextTierName: nextProgram.name,
@@ -141,7 +152,6 @@ export default function MembershipDetails() {
     );
   }
 
-  // Handle cancelled or none type memberships
   if (membership.status === 'cancelled' || (membership.program && membership.program.type === 'none')) {
     return (
       <div className="bg-yellow-50 p-4 rounded-md">
@@ -193,7 +203,6 @@ export default function MembershipDetails() {
         <div className="font-medium text-indigo-600">{membership.points} points</div>
       </div>
     
-      
       {membership.status === 'active' && (
         <div className="mt-3 flex items-center justify-between">
           <Link 
@@ -212,4 +221,4 @@ export default function MembershipDetails() {
       )}
     </div>
   );
-} 
+}
