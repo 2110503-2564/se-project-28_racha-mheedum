@@ -42,13 +42,14 @@ export default function MembershipDetails() {
       }
 
       try {
-        // Fetch membership data
+        // fetch membership data
         const membershipRes = await fetch('http://localhost:5003/api/v1/memberships', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
+        // console.log('Membership fetch response:', membershipRes); // Debugging
         if (!membershipRes.ok) {
           if (membershipRes.status === 404) {
             setMembership(null);
@@ -59,33 +60,39 @@ export default function MembershipDetails() {
         }
 
         const membershipData = await membershipRes.json();
+        // console.log('Fetched membership data:', membershipData); // Debugging
 
-        // Fetch all membership programs
+        // fetch all membership programs
         const programsRes = await fetch('http://localhost:5003/api/v1/memberships/programs', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
+        // console.log('Programs fetch response:', programsRes); // Debugging
         if (!programsRes.ok) {
           throw new Error('Failed to fetch membership programs');
         }
 
         const programsData = await programsRes.json();
-
-        // Sort programs in descending order to get the highest eligible program
+        // console.log('Fetched programs data:', programsData); // Debugging
+      // check if the membership data is empty
+        // console.log('Membership data:', membershipData); // Debugging
+        // cort programs in descending order to get the highest eligible program
         const sortedPrograms = programsData.data.sort(
           (a: MembershipProgram, b: MembershipProgram) => b.pointsRequired - a.pointsRequired
         );
-        
+        // console.log('Sorted programs by points:', sortedPrograms); // Debugging
+        // check if the membership data is empty
 
-        // Find the highest eligible program
         const matchingProgram = sortedPrograms.find(
           (program: MembershipProgram) => membershipData.data.points >= program.pointsRequired
         );
-
-        // Fallback if no matching program is found (assign 'Basic Membership')
+        // console.log('Matching program based on points:', matchingProgram); // Debugging
+        // console.log('Membership data:', membershipData); // Debugging
+        // fallback if no matching program is found (assign 'Basic Membership')
         const selectedProgram = matchingProgram || { name: 'Basic Membership', type: 'basic' };
+        // console.log('Selected program:', selectedProgram); // Debugging
 
         setPrograms(programsData.data); // Update programs state
         setMembership({
@@ -103,14 +110,20 @@ export default function MembershipDetails() {
     fetchData();
   }, [user, token]);
 
-  // Calculate next tier and points needed
+  // calculate next tier and points needed
   const getNextTierInfo = (currentType: string, points: number) => {
     const sortedPrograms = [...programs].sort((a, b) => a.pointsRequired - b.pointsRequired);
     const currentIndex = sortedPrograms.findIndex(p => p.type === currentType);
 
+
+    // console.log('Membership data:', membership); // Debugging
+    // console.log('Sorted programs for next tier:', sortedPrograms); // Debugging
     if (currentIndex === -1 || currentIndex === sortedPrograms.length - 1) {
       return { nextTier: null, nextTierName: null, pointsNeeded: 0, progress: 100 };
     }
+
+
+
 
     const nextProgram = sortedPrograms[currentIndex + 1];
     const pointsNeeded = nextProgram.pointsRequired - points;
@@ -122,6 +135,11 @@ export default function MembershipDetails() {
     const progressRange = nextTierPoints - currentTierPoints;
     const pointsAboveCurrentTier = currentPoints - currentTierPoints;
     const progress = Math.min(100, (pointsAboveCurrentTier / progressRange) * 100);
+  // console.log('Membership details:', membership); // Debugging
+    // console.log('Next tier information:', { nextProgram, pointsNeeded, progress }); // Debugging
+
+
+
 
     return { 
       nextTier: nextProgram.type,
@@ -154,6 +172,7 @@ export default function MembershipDetails() {
 
   if (membership.status === 'cancelled' || (membership.program && membership.program.type === 'none')) {
     return (
+
       <div className="bg-yellow-50 p-4 rounded-md">
         <p className="text-yellow-700 mb-2">
           Your membership is currently {membership.status === 'cancelled' ? 'cancelled' : 'inactive'}.
@@ -173,11 +192,18 @@ export default function MembershipDetails() {
     membership.points
   );
 
+  // console.log('Next tier info:', { nextTier, nextTierName, pointsNeeded, progress }); // Debugging
+
   return (
+
     <div className="bg-white p-4 rounded-md shadow-sm">
+
       <h3 className="text-lg font-medium mb-3">Your Membership</h3>
+
       <div className="grid grid-cols-2 gap-2 text-sm">
+
         <div className="text-gray-600">Type:</div>
+
         <div className="font-medium capitalize">
           {membership.program?.name || 'Basic Membership'}
           <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
@@ -189,6 +215,9 @@ export default function MembershipDetails() {
             {membership.program?.type || 'basic'}
           </span>
         </div>
+        
+
+
         
         <div className="text-gray-600">Status:</div>
         <div className="font-medium capitalize">{membership.status}</div>
@@ -211,26 +240,20 @@ export default function MembershipDetails() {
           >
             Manage Membership & Rewards
           </Link>
+
+
           <Link 
             href="/cancelMembership" 
             className="text-sm text-red-600 hover:text-red-800"
           >
             Cancel membership
           </Link>
+
         </div>
       )}
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
 
 
 
